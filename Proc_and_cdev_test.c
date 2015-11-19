@@ -20,6 +20,7 @@
 #define DIR_NAME		"test_proc"
 #define ENTRY_NAME		"rw_test"
 #define DEVICE_NAME		"charp-dev"
+#define DEVICE_NUM		2
 #define GLOBALMEM_SIZE	0x1000
 #define GLOBALMEM_MAJOR	0
 
@@ -28,6 +29,8 @@ struct globalmem_dev{
 	unsigned char cdev_mem[GLOBALMEM_SIZE];
 	unsigned char proc_mem[GLOBALMEM_SIZE];
 };
+
+struct class *globalmem_cdev_class;
 
 static int globalmem_major = GLOBALMEM_MAJOR;
 static struct proc_dir_entry *test_dir = NULL;
@@ -197,6 +200,7 @@ static const struct file_operations cdev_fops = {
 static int globalmem_setup_cdev(struct globalmem_dev * dev, int index)
 {
 	int ret = 0;
+	char name[100];
 	dev_t devno = MKDEV(globalmem_major, index);
 
 	if(globalmem_major)
@@ -214,26 +218,43 @@ static int globalmem_setup_cdev(struct globalmem_dev * dev, int index)
 	if(ret)
 		printk(KERN_NOTICE "Error %d adding globalmem cdev %d", ret, index);
 
+	sprintf(name, "%s-class-%d", DEVICE_NAME, index);
+	globalmem_cdev_class = class_create(THIS_MODULE, name);
+	if(IS_ERR(globalmem_cdev_class))
+	{
+		printk("Err: failed in creating class./n");
+		return -1; 
+	}
+
+	sprintf(name, "%s-%d", DEVICE_NAME, index);
+	device_create(globalmem_cdev_class, NULL, devno, NULL, name);
 	return 0;
 }
 
 static int __init proc_module_init(void)
 {
+	int ret, i;
 	globalmem_devp = kmalloc(sizeof(struct globalmem_dev), GFP_KERNEL);
 	if(NULL == globalmem_devp)
+	{
+		printk("kmalloc globalmem_dev error\n");
+		ret = -ENOMEM;
 		goto fail_malloc;
+	}
 
 	memset(globalmem_devp, 0, sizeof(struct globalmem_dev));
 
 	globalmem_setup_proc();
-	globalmem_setup_cdev(&globalmem_devp[0], 0);
-	globalmem_setup_cdev(&globalmem_devp[1], 1);
+	for(i=0; i < DEVICE_NUM; i++)
+	{
+		globalmem_setup_cdev(globalmem_devp + i, i);
+	}
 
 	return 0;
 
 fail_malloc:
-	kfree(globalmem_devp);
-	return -EFAULT;
+	unregister_chrdev_region(MKDEV(globalmem_major, 0), 1);
+	return ret;
 }
 
 static void __exit proc_module_exit(void)
