@@ -25,7 +25,7 @@
 #include <mach/hardware.h>
 #include <mach/ac83xx_gpio_pinmux.h>
 #include <mach/ac83xx_gpio_pinmux_mapping.h>
-
+#include "display_inc.h"
 
 #define ATC_KERNEL_LINUX_LICENSE     "GPL"
 
@@ -171,14 +171,22 @@ static ssize_t mic_write(struct file* flip,  const char __user* buf, size_t coun
 	if(dev->val == 0)
    	{
    		gpio_request(MIC_SWITCH_PIN, "output");
-		gpio_direction_output(MIC_SWITCH_PIN,0);  //4G module mic
+	#ifdef SUPPORT_UC20_3G_MODULE
+		gpio_direction_output(MIC_SWITCH_PIN, 1);  //UC20 3G module mic
+	#else
+		gpio_direction_output(MIC_SWITCH_PIN, 0);  //4G module mic
+	#endif
 		gpio_free(MIC_SWITCH_PIN);
 		printk(KERN_INFO "switch to 4G module mic\n");
    	}
 	else if(dev->val == 1)
 	{
 		gpio_request(MIC_SWITCH_PIN, "output");
-		gpio_direction_output(MIC_SWITCH_PIN,1);  //BT mic
+	#ifdef SUPPORT_UC20_3G_MODULE
+		gpio_direction_output(MIC_SWITCH_PIN, 0);  //BT mic
+	#else
+		gpio_direction_output(MIC_SWITCH_PIN, 1);  //BT mic
+	#endif
 		gpio_free(MIC_SWITCH_PIN);
 		printk(KERN_INFO "switch to BT mic\n");
 	}
@@ -205,6 +213,38 @@ static ssize_t mic_write(struct file* flip,  const char __user* buf, size_t coun
 		gpio_free(USB_FAST_CHARGE_SWITCH);
 		printk(KERN_INFO "USB_FAST_CHARGE_SWITCH GPIO5 is high\n");
 	}
+#ifdef SUPPORT_UC20_3G_MODULE
+	else if(dev->val == 5)//TURN ON
+	{
+		gpio_request(RESET_4G_MODULE, "output");
+		gpio_direction_output(RESET_4G_MODULE,1);
+		msleep(200);
+		gpio_direction_output(RESET_4G_MODULE,0);
+		gpio_free(RESET_4G_MODULE);
+		printk(KERN_INFO "Turn on 3G module\n");
+	}
+	else if(dev->val == 6)//TURN OFF
+	{
+		gpio_request(RESET_4G_MODULE, "output");
+		gpio_direction_output(RESET_4G_MODULE,1);
+		msleep(700);
+		gpio_direction_output(RESET_4G_MODULE,0);
+		gpio_free(RESET_4G_MODULE);
+		printk(KERN_INFO "Turn off 3G module\n");
+	}
+	else if(dev->val == 7)//ENABLE USBPORT
+	{
+		gpio_request(PIN_133_TS_D2, "output");
+		gpio_direction_output(PIN_133_TS_D2, 1);
+		printk(KERN_INFO "Enable 3G USBPORT\n");
+	}
+	else if(dev->val == 8)//DISABLE USBPORT
+	{
+		gpio_request(PIN_133_TS_D2, "output");
+		gpio_direction_output(PIN_133_TS_D2, 0);
+		printk(KERN_INFO "Disable 3G USBPORT\n");
+	}
+#endif
 	
 	err = sizeof(dev->val);
 	out:
@@ -259,14 +299,22 @@ static ssize_t __mic_set_val( struct mic_device* dev, const char* buf, size_t co
 	if(dev->val == 0)
    	{
    		gpio_request(MIC_SWITCH_PIN, "output");
+	#ifdef SUPPORT_UC20_3G_MODULE
+		gpio_direction_output(MIC_SWITCH_PIN,1);  //UC20 3G module mic
+	#else
 		gpio_direction_output(MIC_SWITCH_PIN,0);  //4G module mic
+	#endif
 		gpio_free(MIC_SWITCH_PIN);
 		printk(KERN_INFO "switch to 4G module mic\n");
    	}
 	else if(dev->val == 1)
 	{
 		gpio_request(MIC_SWITCH_PIN, "output");
+	#ifdef SUPPORT_UC20_3G_MODULE
+		gpio_direction_output(MIC_SWITCH_PIN,0);  //BT mic
+	#else
 		gpio_direction_output(MIC_SWITCH_PIN,1);  //BT mic
+	#endif
 		gpio_free(MIC_SWITCH_PIN);
 		printk(KERN_INFO "switch to BT mic\n");
 	}
@@ -293,8 +341,39 @@ static ssize_t __mic_set_val( struct mic_device* dev, const char* buf, size_t co
 		gpio_free(USB_FAST_CHARGE_SWITCH);
 		printk(KERN_INFO "USB_FAST_CHARGE_SWITCH GPIO5 is high\n");
 	}
+#ifdef SUPPORT_UC20_3G_MODULE
+	else if(dev->val == 5)//TURN ON
+	{
+		gpio_request(RESET_4G_MODULE, "output");
+		gpio_direction_output(RESET_4G_MODULE,1);
+		msleep(200);
+		gpio_direction_output(RESET_4G_MODULE,0);
+		gpio_free(RESET_4G_MODULE);
+		printk(KERN_INFO "Turn on 3G module\n");
+	}
+	else if(dev->val == 6)//TURN OFF
+	{
+		gpio_request(RESET_4G_MODULE, "output");
+		gpio_direction_output(RESET_4G_MODULE,1);
+		msleep(700);
+		gpio_direction_output(RESET_4G_MODULE,0);
+		gpio_free(RESET_4G_MODULE);
+		printk(KERN_INFO "Turn off 3G module\n");
+	}
+	else if(dev->val == 7)//ENABLE USBPORT
+	{
+		gpio_request(PIN_133_TS_D2, "output");
+		gpio_direction_output(PIN_133_TS_D2, 1);
+		printk(KERN_INFO "Enable 3G USBPORT\n");
+	}
+	else if(dev->val == 8)//DISABLE USBPORT
+	{
+		gpio_request(PIN_133_TS_D2, "output");
+		gpio_direction_output(PIN_133_TS_D2, 0);
+		printk(KERN_INFO "Disable 3G USBPORT\n");
+	}
+#endif
 
-	
 	up( &(dev->sem));
 	return count;
 }
@@ -551,6 +630,68 @@ static int __mic_setup_dev(struct mic_device* dev)
 	return 0;
 }
 
+#ifdef SUPPORT_UC20_3G_MODULE
+
+#ifdef CONFIG_PM_SLEEP
+static int mic_legacy_suspend(struct platform_device *dev, pm_message_t state)
+{
+	gpio_request(PIN_133_TS_D2, "output");
+	gpio_direction_output(PIN_133_TS_D2, 0);
+	gpio_free(PIN_133_TS_D2);
+	printk(KERN_INFO "Disable 3G USBPORT\n");
+
+	gpio_request(RESET_4G_MODULE, "output");
+	gpio_direction_output(RESET_4G_MODULE,1);
+	msleep(700);
+	gpio_direction_output(RESET_4G_MODULE,0);
+	gpio_free(RESET_4G_MODULE);
+	printk(KERN_INFO "Turn off 3G module\n");
+
+	printk(KERN_INFO "[mic]: %s\n", __func__);
+    return 0;
+}
+static int mic_legacy_resume(struct platform_device *dev)
+{
+	gpio_request(PIN_133_TS_D2, "output");
+	gpio_direction_output(PIN_133_TS_D2, 1);
+	gpio_free(PIN_133_TS_D2);
+	printk(KERN_INFO "Enable 3G USBPORT\n");
+
+	gpio_request(RESET_4G_MODULE, "output");
+	gpio_direction_output(RESET_4G_MODULE,1);
+	msleep(200);
+	gpio_direction_output(RESET_4G_MODULE,0);
+	gpio_free(RESET_4G_MODULE);
+	printk(KERN_INFO "Turn on 3G module\n");
+
+	printk(KERN_INFO "[bkl]: %s\n", __func__);
+    return 0;
+}
+#endif
+
+static struct platform_device _mic_dev = {
+    .name = "ac8217-mic",
+    .id = 0,
+//    .dev.release = mic_plt_dev_release,
+};
+
+static struct platform_driver _mic_drv = {
+    .driver = {
+        .name = "ac8217-mic",
+        .owner = THIS_MODULE,
+#ifdef CONFIG_PM
+//        .pm = &mic_pm_ops,
+#endif
+            },
+//    .probe  = mic_probe,
+//    .remove = __devexit_p(mic_remove),
+#ifdef CONFIG_PM_SLEEP
+     .suspend = mic_legacy_suspend,
+     .resume = mic_legacy_resume,
+#endif
+};
+#endif
+
 static int __init mic_init(void)
 {
     int ret = -1;
@@ -558,19 +699,21 @@ static int __init mic_init(void)
 	struct device* temp = NULL;
 	
 	printk(KERN_ALERT"Initializing mic device. \n");
-/*
-    ret = platform_device_register(&mic_dev);
+
+#ifdef SUPPORT_UC20_3G_MODULE
+    ret = platform_device_register(&_mic_dev);
     if (ret) {
         printk(KERN_ERR "[mic]: %s: register  device failed\n", __func__); 
         goto fail0;
     }
-    
-    ret = platform_driver_register(&mic_drv);
+
+    ret = platform_driver_register(&_mic_drv);
     if (ret) {
         printk(KERN_ERR "[mic]: %s: register  driver failed\n", __func__);
         goto fail1;
-    }   
-*/
+    }
+#endif
+
 	//∑÷≈‰…Ë±∏∫≈¬Î
 	ret = alloc_chrdev_region( &dev, 0, 1, "mic");
 	if(ret < 0)
@@ -639,8 +782,8 @@ cleanup:
 	kfree(mic_dev);
 unregister:
 	unregister_chrdev_region(MKDEV(mic_major, mic_minor), 1);
-//fail1:
-//    platform_device_unregister(&mic_dev);
+fail1:
+    platform_device_unregister(&_mic_dev);
 fail0:
     return ret;
 }
